@@ -1,1 +1,115 @@
+"""
+Node feature extraction – optimized for fast computation
+"""
 
+import numpy as np
+import networkx as nx
+from scipy.sparse import csr_matrix
+from scipy.sparse.linalg import eigs
+from typing import Dict, List
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+class FeatureExtractor:
+    """Extraction of structural features of nodes"""
+    
+    def __init__(self, graph: nx.DiGraph):
+        self.graph = graph
+        self.undirected = graph.to_undirected()
+        self.n_nodes = graph.number_of_nodes()
+        self.node_list = list(graph.nodes())
+        self.node_to_idx = {node: i for i, node in enumerate(self.node_list)}
+        
+    def extract_all_features(self) -> np.ndarray:
+        """Extracting all features as a matrix"""
+        logger.info("Extracting node features...")
+        
+        features = []
+        
+        # 1. Degree Centrality
+        degree = np.array([self.graph.degree(n) for n in self.node_list])
+        degree_norm = degree / (degree.max() + 1e-8)
+        features.append(degree_norm)
+        
+        # 2. In-degree
+        in_degree = np.array([self.graph.in_degree(n) for n in self.node_list])
+        in_degree_norm = in_degree / (in_degree.max() + 1e-8)
+        features.append(in_degree_norm)
+        
+        # 3. Out-degree
+        out_degree = np.array([self.graph.out_degree(n) for n in self.node_list])
+        out_degree_norm = out_degree / (out_degree.max() + 1e-8)
+        features.append(out_degree_norm)
+        
+        # 4. PageRank (Approximation for large graphs)
+        logger.info("  Computing PageRank...")
+        try:
+            pagerank = nx.pagerank(self.graph, max_iter=50, tol=1e-6)
+            pagerank_values = np.array([pagerank[n] for n in self.node_list])
+            features.append(pagerank_values)
+        except:
+            features.append(np.zeros(self.n_nodes))
+        
+        # 5. Clustering Coefficient (Local)
+        logger.info("  Computing clustering coefficients...")
+        clustering = nx.clustering(self.undirected)
+        clustering_values = np.array([clustering.get(n, 0) for n in self.node_list])
+        features.append(clustering_values)
+        
+        # 6. Betweenness Centrality (Sampling for large graphs)
+        logger.info("  Computing betweenness centrality (sampling)...")
+        if self.n_nodes > 5000:
+            betweenness = nx.betweenness_centrality(self.graph, k=1000, normalized=True)
+        else:
+            betweenness = nx.betweenness_centrality(self.graph, normalized=True)
+        betweenness_values = np.array([betweenness.get(n, 0) for n in self.node_list])
+        features.append(betweenness_values)
+        
+        # 7. Closeness Centrality (Approximation)
+        logger.info("  Computing closeness centrality (approximation)...")
+        if self.n_nodes > 5000:
+            closeness = nx.closeness_centrality(self.graph, distance='unweighted')
+        else:
+            closeness = nx.closeness_centrality(self.graph)
+        closeness_values = np.array([closeness.get(n, 0) for n in self.node_list])
+        features.append(closeness_values)
+        
+        # Stack features
+        feature_matrix = np.stack(features, axis=1)
+        
+        logger.info(f"Feature extraction complete: {feature_matrix.shape}")
+        return feature_matrix
+    
+    def get_node_embedding(self, node) -> np.ndarray:
+        """Obtaining the embedding of a specific node"""
+        idx = self.node_to_idx[node]
+        features = self.extract_all_features()
+        return features[idx]
+    
+    def get_state_features(self, selected_nodes: set, activated_nodes: set) -> np.ndarray:
+        """Extracting current state features for RL"""
+        # Characteristics of the selected nodes
+        selected_mask = np.zeros(self.n_nodes)
+        for node in selected_nodes:
+            if node in self.node_to_idx:
+                selected_mask[self.node_to_idx[node]] = 1
+        
+        # Characteristics of active nodes
+        activated_mask = np.zeros(self.n_nodes)
+        for node in activated_nodes:
+            if node in self.node_to_idx:
+                activated_mask[self.node_to_idx[node]] = 1
+        
+        # Structural characteristics of all nodes
+        structural_features = self.extract_all_features()
+        
+        # Feature combination
+        state = np.concatenate([
+            selected_mask.reshape(-1, 1),
+            activated_mask.reshape(-1, 1),
+            structural_features
+        ], axis=1)
+        
+        return state
