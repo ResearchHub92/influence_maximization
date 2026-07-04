@@ -1,1 +1,306 @@
+"""
+Visualization Module – Generation of all required charts
+"""
 
+import matplotlib.pyplot as plt
+import seaborn as sns
+import numpy as np
+import networkx as nx
+from typing import Dict, List, Tuple
+import logging
+
+logger = logging.getLogger(__name__)
+
+# Style Settings
+plt.style.use('seaborn-v0_8-darkgrid')
+sns.set_palette("husl")
+
+
+class Visualizer:
+    """Generation of all project charts"""
+    
+    def __init__(self, output_dir: str = "outputs/figures"):
+        self.output_dir = output_dir
+        import os
+        os.makedirs(output_dir, exist_ok=True)
+    
+    def plot_degree_distribution(self, graph: nx.Graph, save: bool = True):
+        """Degree distribution plot"""
+        degrees = [d for n, d in graph.degree()]
+        
+        fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+        
+        # Histogram
+        axes[0].hist(degrees, bins=50, alpha=0.7, edgecolor='black')
+        axes[0].set_xlabel('Degree')
+        axes[0].set_ylabel('Frequency')
+        axes[0].set_title('Degree Distribution')
+        axes[0].set_yscale('log')
+        
+        # log-log
+        unique, counts = np.unique(degrees, return_counts=True)
+        axes[1].loglog(unique, counts, 'o', alpha=0.5)
+        axes[1].set_xlabel('log(Degree)')
+        axes[1].set_ylabel('log(Frequency)')
+        axes[1].set_title('Degree Distribution (log-log)')
+        
+        plt.tight_layout()
+        if save:
+            plt.savefig(f"{self.output_dir}/degree_distribution.png", dpi=150)
+        plt.show()
+    
+    def plot_reward_curve(self, rewards: List[float], save: bool = True):
+        """Reward plot over episodes"""
+        fig, ax = plt.subplots(figsize=(10, 6))
+        
+        # smoothed curve
+        window = min(20, len(rewards) // 10)
+        if window > 0:
+            smoothed = np.convolve(rewards, np.ones(window)/window, mode='valid')
+            ax.plot(smoothed, 'b-', alpha=0.7, label='Smoothed')
+        
+        ax.plot(rewards, 'b-', alpha=0.3, label='Raw')
+        ax.set_xlabel('Episode')
+        ax.set_ylabel('Cumulative Reward')
+        ax.set_title('Reward Curve During Training')
+        ax.legend()
+        ax.grid(True, alpha=0.3)
+        
+        if save:
+            plt.savefig(f"{self.output_dir}/reward_curve.png", dpi=150)
+        plt.show()
+    
+    def plot_loss_curve(self, losses: List[float], save: bool = True):
+        """Loss chart"""
+        fig, ax = plt.subplots(figsize=(10, 6))
+        
+        # Removing zeros
+        valid_losses = [l for l in losses if l > 0]
+        
+        if valid_losses:
+            window = min(20, len(valid_losses) // 10)
+            if window > 0:
+                smoothed = np.convolve(valid_losses, np.ones(window)/window, mode='valid')
+                ax.plot(smoothed, 'r-', alpha=0.7, label='Smoothed')
+            
+            ax.plot(valid_losses, 'r-', alpha=0.3, label='Raw')
+        
+        ax.set_xlabel('Training Step')
+        ax.set_ylabel('Loss')
+        ax.set_title('Loss Curve')
+        ax.legend()
+        ax.grid(True, alpha=0.3)
+        
+        if save:
+            plt.savefig(f"{self.output_dir}/loss_curve.png", dpi=150)
+        plt.show()
+    
+    def plot_spread_comparison(self, results: Dict[str, float], save: bool = True):
+        """Comparison of spreads across different methods"""
+        methods = list(results.keys())
+        spreads = list(results.values())
+        
+        fig, ax = plt.subplots(figsize=(10, 6))
+        
+        colors = ['#2ecc71' if m == 'ddqn' else '#3498db' for m in methods]
+        bars = ax.bar(methods, spreads, color=colors, edgecolor='black')
+        
+        # Adding values ​​to the bars
+        for bar, spread in zip(bars, spreads):
+            ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 1,
+                   f'{spread:.1f}', ha='center', va='bottom', fontsize=10)
+        
+        ax.set_xlabel('Method')
+        ax.set_ylabel('Influence Spread')
+        ax.set_title('Comparison of Influence Maximization Methods')
+        ax.set_ylim(0, max(spreads) * 1.1)
+        
+        if save:
+            plt.savefig(f"{self.output_dir}/spread_comparison.png", dpi=150)
+        plt.show()
+    
+    def plot_influence_vs_seed_size(self, results: Dict[int, float], 
+                                    baseline_results: Dict[str, Dict[int, float]] = None,
+                                    save: bool = True):
+        """Graph of effect versus seed size"""
+        fig, ax = plt.subplots(figsize=(10, 6))
+        
+        sizes = sorted(results.keys())
+        spreads = [results[s] for s in sizes]
+        
+        ax.plot(sizes, spreads, 'o-', linewidth=2, markersize=8, 
+               label='DDQN', color='#2ecc71')
+        
+        # Comparison with baselines
+        if baseline_results:
+            colors = ['#e74c3c', '#f39c12', '#9b59b6']
+            for i, (name, data) in enumerate(baseline_results.items()):
+                baseline_spreads = [data.get(s, 0) for s in sizes]
+                ax.plot(sizes, baseline_spreads, 'o-', linewidth=2, markersize=6,
+                       label=name.capitalize(), color=colors[i % len(colors)], alpha=0.7)
+        
+        ax.set_xlabel('Number of Seeds')
+        ax.set_ylabel('Influence Spread')
+        ax.set_title('Influence vs Seed Set Size')
+        ax.legend()
+        ax.grid(True, alpha=0.3)
+        
+        if save:
+            plt.savefig(f"{self.output_dir}/influence_vs_seed_size.png", dpi=150)
+        plt.show()
+    
+    def plot_convergence(self, spreads: List[float], save: bool = True):
+        """Convergence plot"""
+        fig, ax = plt.subplots(figsize=(10, 6))
+        
+        window = min(20, len(spreads) // 10)
+        if window > 0:
+            smoothed = np.convolve(spreads, np.ones(window)/window, mode='valid')
+            ax.plot(smoothed, 'g-', linewidth=2, label='Smoothed')
+        
+        ax.plot(spreads, 'g-', alpha=0.3, label='Raw')
+        ax.axhline(y=np.mean(spreads[-50:]), color='r', linestyle='--', 
+                  label=f"Final avg: {np.mean(spreads[-50:]):.1f}")
+        
+        ax.set_xlabel('Episode')
+        ax.set_ylabel('Influence Spread')
+        ax.set_title('Convergence of DDQN')
+        ax.legend()
+        ax.grid(True, alpha=0.3)
+        
+        if save:
+            plt.savefig(f"{self.output_dir}/convergence_plot.png", dpi=150)
+        plt.show()
+    
+    def plot_memory_usage(self, memory_usage: List[float], save: bool = True):
+        """Memory usage chart"""
+        fig, ax = plt.subplots(figsize=(10, 6))
+        
+        ax.plot(memory_usage, 'b-', linewidth=2)
+        ax.fill_between(range(len(memory_usage)), memory_usage, alpha=0.3)
+        
+        ax.set_xlabel('Step')
+        ax.set_ylabel('Memory Usage (MB)')
+        ax.set_title('Memory Usage During Training')
+        ax.grid(True, alpha=0.3)
+        
+        if save:
+            plt.savefig(f"{self.output_dir}/memory_usage.png", dpi=150)
+        plt.show()
+    
+    def plot_training_time_comparison(self, times: Dict[str, float], save: bool = True):
+        """Comparison of training time"""
+        fig, ax = plt.subplots(figsize=(10, 6))
+        
+        methods = list(times.keys())
+        time_values = list(times.values())
+        
+        bars = ax.bar(methods, time_values, color=['#2ecc71', '#e74c3c', '#f39c12'], 
+                     edgecolor='black')
+        
+        for bar, t in zip(bars, time_values):
+            ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.5,
+                   f'{t:.1f}s', ha='center', va='bottom', fontsize=10)
+        
+        ax.set_xlabel('Method')
+        ax.set_ylabel('Training Time (seconds)')
+        ax.set_title('Training Time Comparison')
+        
+        if save:
+            plt.savefig(f"{self.output_dir}/training_time_comparison.png", dpi=150)
+        plt.show()
+    
+    def plot_ablation_study(self, results: Dict[str, float], save: bool = True):
+        """Ablation study chart – Impact of various components"""
+        fig, ax = plt.subplots(figsize=(10, 6))
+        
+        components = list(results.keys())
+        scores = list(results.values())
+        
+        bars = ax.bar(components, scores, color='#3498db', edgecolor='black')
+        
+        # Main strip coloring
+        for i, bar in enumerate(bars):
+            if components[i] == 'Full Model':
+                bar.set_color('#2ecc71')
+        
+        ax.set_xlabel('Model Component')
+        ax.set_ylabel('Influence Spread')
+        ax.set_title('Ablation Study: Effect of Different Components')
+        ax.set_ylim(0, max(scores) * 1.1)
+        
+        # Rotating labels
+        plt.xticks(rotation=45, ha='right')
+        
+        plt.tight_layout()
+        if save:
+            plt.savefig(f"{self.output_dir}/ablation_study.png", dpi=150)
+        plt.show()
+    
+    def plot_robustness(self, noise_levels: List[float], spreads: List[float], 
+                       save: bool = True):
+        """Noise resistance chart"""
+        fig, ax = plt.subplots(figsize=(10, 6))
+        
+        ax.plot(noise_levels, spreads, 'o-', linewidth=2, markersize=8, color='#e74c3c')
+        ax.fill_between(noise_levels, spreads, alpha=0.3)
+        
+        ax.set_xlabel('Noise Level (Edge removal %)')
+        ax.set_ylabel('Influence Spread')
+        ax.set_title('Robustness to Graph Noise')
+        ax.grid(True, alpha=0.3)
+        
+        if save:
+            plt.savefig(f"{self.output_dir}/robustness_plot.png", dpi=150)
+        plt.show()
+    
+    def plot_cumulative_reward(self, cumulative_rewards: List[float], save: bool = True):
+        """Cumulative Reward Chart"""
+        fig, ax = plt.subplots(figsize=(10, 6))
+        
+        ax.plot(cumulative_rewards, 'b-', linewidth=2)
+        ax.fill_between(range(len(cumulative_rewards)), cumulative_rewards, alpha=0.3)
+        
+        ax.set_xlabel('Episode')
+        ax.set_ylabel('Cumulative Reward')
+        ax.set_title('Cumulative Reward Over Training')
+        ax.grid(True, alpha=0.3)
+        
+        if save:
+            plt.savefig(f"{self.output_dir}/cumulative_reward.png", dpi=150)
+        plt.show()
+    
+    def plot_community_visualization(self, graph: nx.Graph, save: bool = True):
+        """Display Communities – Sampled"""
+        # Sampling for large graphs
+        if graph.number_of_nodes() > 500:
+            nodes = list(graph.nodes())[:500]
+            subgraph = graph.subgraph(nodes)
+        else:
+            subgraph = graph
+        
+        fig, ax = plt.subplots(figsize=(12, 10))
+        
+        # Calculation of unions
+        from networkx.algorithms.community import greedy_modularity_communities
+        communities = list(greedy_modularity_communities(subgraph.to_undirected()))
+        
+        # Coloring
+        colors = plt.cm.Set3(np.linspace(0, 1, len(communities)))
+        node_colors = {}
+        for i, comm in enumerate(communities):
+            for node in comm:
+                node_colors[node] = colors[i]
+        
+        color_list = [node_colors.get(node, 'gray') for node in subgraph.nodes()]
+        
+        # Graph plotting
+        pos = nx.spring_layout(subgraph, k=0.3, iterations=50)
+        nx.draw(subgraph, pos, node_color=color_list, node_size=50, 
+                edge_color='gray', alpha=0.6, with_labels=False, ax=ax)
+        
+        ax.set_title('Community Structure Visualization')
+        
+        if save:
+            plt.savefig(f"{self.output_dir}/community_visualization.png", dpi=150)
+        plt.show()
