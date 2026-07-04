@@ -1,0 +1,143 @@
+# # # Project Configuration
+# # project:
+# #   name: "Influence Maximization with DDQN"
+# #   version: "1.0"
+# #   seed: 42
+
+# # # Data settings
+# # data:
+# #   dataset_path: "data/soc-Epinions1.txt"
+# #   max_nodes: 5000  # برای اجرا روی لپ‌تاپ
+# #   sampling_strategy: "largest_connected_component"
+  
+# # # Graph preprocessing
+# # graph:
+# #   remove_self_loops: true
+# #   remove_isolated: true
+# #   use_lcc: true
+  
+# # # Diffusion model settings
+# # diffusion:
+# #   model: "ic"  # Independent Cascade
+# #   num_simulations: 100  # تعداد شبیه‌سازی برای تخمین spread
+  
+# # # DDQN Hyperparameters
+# # ddqn:
+# #   learning_rate: 0.0005
+# #   gamma: 0.99
+# #   epsilon_start: 1.0
+# #   epsilon_end: 0.01
+# #   epsilon_decay: 0.995
+# #   batch_size: 32
+# #   memory_size: 10000
+# #   target_update: 100
+# #   hidden_dim: 128
+# #   num_episodes: 200
+# #   max_seed_size: 20
+  
+# # # Training
+# # training:
+# #   device: "cpu"  # یا "cuda" اگر GPU دارید
+# #   checkpoint_interval: 50
+# #   log_interval: 10
+  
+# # # Evaluation
+# # evaluation:
+# #   baseline_methods: ["random", "degree", "pagerank", "greedy"]
+# #   num_seeds_list: [1, 5, 10, 15, 20]
+
+
+# # Project Configuration
+# project:
+#   name: "Influence Maximization with DDQN"
+#   version: "1.0"
+#   seed: 42
+
+# # Data settings
+# data:
+#   dataset_path: "data/soc-Epinions1.txt"
+#   max_nodes: 2000  # کاهش برای سرعت بیشتر روی لپ‌تاپ
+#   sampling_strategy: "largest_connected_component"
+  
+# # Graph preprocessing
+# graph:
+#   remove_self_loops: true
+#   remove_isolated: true
+#   use_lcc: true
+  
+# # Diffusion model settings
+# diffusion:
+#   model: "ic"  # Independent Cascade
+#   num_simulations: 50  # تعداد شبیه‌سازی برای تخمین spread
+  
+# # DDQN Hyperparameters
+# ddqn:
+#   learning_rate: 0.0005
+#   gamma: 0.99
+#   epsilon_start: 1.0
+#   epsilon_end: 0.01
+#   epsilon_decay: 0.995
+#   batch_size: 16  # کاهش برای حافظه کمتر
+#   memory_size: 5000  # کاهش
+#   target_update: 100
+#   hidden_dim: 64  # کاهش برای سرعت بیشتر
+#   num_episodes: 50  # کاهش برای تست سریعتر
+#   max_seed_size: 10  # کاهش
+  
+# # Training
+# training:
+#   device: "cpu"
+#   checkpoint_interval: 25
+#   log_interval: 5
+  
+# # Evaluation
+# evaluation:
+#   baseline_methods: ["random", "degree", "pagerank"]
+#   num_seeds_list: [1, 3, 5, 7, 10]
+# Project Configuration
+project:
+  name: "Influence Maximization with DDQN"
+  version: "1.0"
+  seed: 42
+
+# Data settings
+data:
+  dataset_path: "data/soc-Epinions1.txt"
+  max_nodes: 5000
+  sampling_strategy: "largest_connected_component"
+  
+# Graph preprocessing
+graph:
+  remove_self_loops: true
+  remove_isolated: true
+  use_lcc: true
+  
+# Diffusion model settings
+diffusion:
+  model: "ic"
+  num_simulations: 50
+  
+# DDQN Hyperparameters
+ddqn:
+  learning_rate: 0.0005
+  gamma: 0.99
+  epsilon_start: 1.0
+  epsilon_end: 0.01
+  epsilon_decay: 0.995
+  batch_size: 16
+  memory_size: 5000
+  target_update: 100
+  hidden_dim: 64
+  num_episodes: 100  # کاهش برای تست سریع
+  max_seed_size: 5  # کاهش
+  
+# Training
+training:
+  device: "cpu"
+  checkpoint_interval: 10
+  log_interval: 5
+  
+# Evaluation
+evaluation:
+  baseline_methods: ["random", "degree"]
+  num_seeds_list: [1, 3, 5]
