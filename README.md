@@ -60,8 +60,8 @@ This project is built with **Python 3.9+** and relies on the following packages:
 Clone the repository:
 
 ```bash
-git clone https://github.com/your-username/influence-maximization-drl.git
-cd influence-maximization-drl
+git clone https://github.com/ResearchHub92/influence_maximization.git
+cd influence_maximization
 ```
 
 Create a virtual environment (recommended):
