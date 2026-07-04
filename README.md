@@ -159,7 +159,7 @@ Full results, figures, and statistical analyses are available in the `results/` 
 If you use this repository in your research, please cite:
 
 ```bibtex
-@article{your2026influence,
+{
   title={Influence Maximization in Social Networks via Deep Reinforcement Learning: A Double DQN Framework with Multi-Dimensional Performance Evaluation},
   author={omid sarhadbani},
   year={2026}
