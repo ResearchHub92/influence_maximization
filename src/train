@@ -1,1 +1,483 @@
+# # """
+# # Training Module – Optimized for speed and memory
+# # """
 
+# # import numpy as np
+# # from tqdm import tqdm
+# # import time
+# # import logging
+# # from typing import Dict, List, Tuple
+# # import json
+
+# # from src.ddqn_agent import DDQNAgent
+# # from src.diffusion_model import IndependentCascade
+# # from src.feature_extractor import FeatureExtractor
+
+# # logger = logging.getLogger(__name__)
+
+
+# # class Trainer:
+# #     """Training Process Management"""
+    
+# #     def __init__(self, graph, config: dict):
+# #         self.graph = graph
+# #         self.config = config
+# #         self.n_nodes = graph.number_of_nodes()
+# #         self.node_list = list(graph.nodes())
+# #         self.node_to_idx = {node: i for i, node in enumerate(self.node_list)}
+        
+# #         # Feature extraction
+# #         logger.info("Extracting features...")
+# #         self.feature_extractor = FeatureExtractor(graph)
+# #         self.node_features = self.feature_extractor.extract_all_features()
+        
+# #         # Diffusion model
+# #         logger.info("Initializing diffusion model...")
+# #         self.diffusion = IndependentCascade(graph, prob='weighted')
+        
+# #         # Agent
+# #         logger.info("Initializing DDQN agent...")
+# #         feature_dim = self.node_features.shape[1]
+# #         self.agent = DDQNAgent(self.n_nodes, feature_dim, config['ddqn'])
+        
+# #         # Track metrics
+# #         self.metrics = {
+# #             'episode_rewards': [],
+# #             'episode_losses': [],
+# #             'episode_spreads': [],
+# #             'training_times': []
+# #         }
+        
+# #     def train_episode(self, max_seed_size: int) -> Tuple[float, float, List[int]]:
+# #         """Training an episode"""
+# #         selected_nodes = set()
+# #         activated_nodes = set()
+# #         episode_reward = 0
+# #         episode_losses = []
+# #         seeds = []
+        
+# #         for step in range(max_seed_size):
+# #             # ساخت state
+# #             state = self.agent._get_state_representation(
+# #                 set(), activated_nodes, self.node_features
+# #             )
+            
+# #             # Available actions
+# #             available = [i for i in range(self.n_nodes) if i not in selected_nodes]
+# #             if not available:
+# #                 break
+            
+# #             # Select action
+# #             action = self.agent.select_action(state, available)
+# #             seeds.append(self.node_list[action])
+# #             selected_nodes.add(action)
+            
+# #             # Diffusion simulation
+# #             new_activated = self.diffusion.simulate(seeds, num_simulations=10)
+# #             new_activated_indices = {self.node_to_idx[n] for n in new_activated}
+            
+# #             # Calculating the reward (increase in the number of active users)
+# #             prev_count = len(activated_nodes)
+# #             activated_nodes.update(new_activated_indices)
+# #             reward = len(activated_nodes) - prev_count
+            
+# #             episode_reward += reward
+            
+# #             # ساخت next_state
+# #             next_state = self.agent._get_state_representation(
+# #                 selected_nodes, activated_nodes, self.node_features
+# #             )
+            
+# #             done = (step == max_seed_size - 1)
+            
+# #             # Save Experience
+# #             self.agent.remember(state, action, reward, next_state, done)
+            
+# #             # Training
+# #             loss = self.agent.replay()
+# #             if loss > 0:
+# #                 episode_losses.append(loss)
+            
+# #             if done:
+# #                 break
+        
+# #         # Epsilon update و target network
+# #         self.agent.update_epsilon()
+# #         if self.agent.steps % self.agent.target_update == 0:
+# #             self.agent.update_target_network()
+        
+# #         avg_loss = np.mean(episode_losses) if episode_losses else 0
+# #         return episode_reward, avg_loss, seeds
+    
+# #     def train(self, num_episodes: int, max_seed_size: int) -> Dict:
+# #         """The core training loop"""
+# #         logger.info(f"Starting training for {num_episodes} episodes...")
+        
+# #         for episode in tqdm(range(num_episodes), desc="Training"):
+# #             start_time = time.time()
+            
+# #             reward, loss, seeds = self.train_episode(max_seed_size)
+            
+# #             # Calculating the final spread
+# #             final_spread = self.diffusion.simulate(seeds, num_simulations=50)
+            
+# #             training_time = time.time() - start_time
+            
+# #             # Logging metrics
+# #             self.metrics['episode_rewards'].append(reward)
+# #             self.metrics['episode_losses'].append(loss)
+# #             self.metrics['episode_spreads'].append(final_spread)
+# #             self.metrics['training_times'].append(training_time)
+            
+# #             # Logging
+# #             if (episode + 1) % self.config['training']['log_interval'] == 0:
+# #                 logger.info(f"Episode {episode + 1}: Reward={reward:.2f}, "
+# #                            f"Loss={loss:.4f}, Spread={final_spread:.2f}, "
+# #                            f"Epsilon={self.agent.epsilon:.3f}")
+            
+# #             # Save checkpoint
+# #             if (episode + 1) % self.config['training']['checkpoint_interval'] == 0:
+# #                 self.agent.save_model(f"outputs/models/checkpoint_{episode + 1}.pt")
+        
+# #         return self.metrics
+    
+# #     def get_best_seeds(self, num_seeds: int) -> List[int]:
+# #         """Finding the best seed set using the learned policy"""
+# #         selected = set()
+        
+# #         for _ in range(num_seeds):
+# #             state = self.agent._get_state_representation(selected, set(), self.node_features)
+# #             available = [i for i in range(self.n_nodes) if i not in selected]
+            
+# #             with torch.no_grad():
+# #                 state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.agent.device)
+# #                 q_values = self.agent.policy_net(state_tensor).cpu().numpy()[0]
+                
+# #                 best_action = max(available, key=lambda a: q_values[a])
+# #                 selected.add(best_action)
+        
+# #         return [self.node_list[i] for i in selected]
+
+# """
+# Training Module – Optimized for speed and memory
+# """
+
+# import numpy as np
+# from tqdm import tqdm
+# import time
+# import logging
+# from typing import Dict, List, Tuple
+# import json
+# import torch
+
+# from src.ddqn_agent import DDQNAgent
+# from src.diffusion_model import IndependentCascade
+# from src.feature_extractor import FeatureExtractor
+
+# logger = logging.getLogger(__name__)
+
+
+# class Trainer:
+#     """Training Process Management"""
+    
+#     def __init__(self, graph, config: dict):
+#         self.graph = graph
+#         self.config = config
+#         self.n_nodes = graph.number_of_nodes()
+#         self.node_list = list(graph.nodes())
+#         self.node_to_idx = {node: i for i, node in enumerate(self.node_list)}
+        
+#         # Feature extraction
+#         logger.info("Extracting features...")
+#         self.feature_extractor = FeatureExtractor(graph)
+#         self.node_features = self.feature_extractor.extract_all_features()
+        
+#         # Diffusion model
+#         logger.info("Initializing diffusion model...")
+#         self.diffusion = IndependentCascade(graph, prob='weighted')
+        
+#         # Agent
+#         logger.info("Initializing DDQN agent...")
+#         feature_dim = self.node_features.shape[1]
+#         self.agent = DDQNAgent(self.n_nodes, feature_dim, config['ddqn'])
+#         self.agent.set_node_features(self.node_features)
+        
+#         # Track metrics
+#         self.metrics = {
+#             'episode_rewards': [],
+#             'episode_losses': [],
+#             'episode_spreads': [],
+#             'training_times': []
+#         }
+        
+#     def train_episode(self, max_seed_size: int) -> Tuple[float, float, List[int]]:
+#         """Training an episode"""
+#         selected_nodes = set()
+#         activated_nodes = set()
+#         episode_reward = 0
+#         episode_losses = []
+#         seeds = []
+        
+#         for step in range(max_seed_size):
+#             # Creating a state
+#             state = self.agent._get_state_representation(selected_nodes, activated_nodes)
+            
+#             # Available actions
+#             available = [i for i in range(self.n_nodes) if i not in selected_nodes]
+#             if not available:
+#                 break
+            
+#             # Select action
+#             action = self.agent.select_action(state, available)
+#             seeds.append(self.node_list[action])
+#             selected_nodes.add(action)
+            
+#             # Diffusion simulation
+#             new_activated = self.diffusion.simulate(seeds, num_simulations=10)
+#             new_activated_indices = {self.node_to_idx[n] for n in new_activated}
+            
+#             # Calculating the reward (increase in the number of active users)
+#             prev_count = len(activated_nodes)
+#             activated_nodes.update(new_activated_indices)
+#             reward = len(activated_nodes) - prev_count
+            
+#             episode_reward += reward
+            
+#             # ساخت next_state
+#             next_state = self.agent._get_state_representation(selected_nodes, activated_nodes)
+            
+#             done = (step == max_seed_size - 1)
+            
+#             # Save Experience
+#             self.agent.remember(state, action, reward, next_state, done)
+            
+#             # Training
+#             loss = self.agent.replay()
+#             if loss > 0:
+#                 episode_losses.append(loss)
+            
+#             if done:
+#                 break
+        
+#         # Epsilon update
+#         self.agent.update_epsilon()
+        
+#         avg_loss = np.mean(episode_losses) if episode_losses else 0
+#         return episode_reward, avg_loss, seeds
+    
+#     def train(self, num_episodes: int, max_seed_size: int) -> Dict:
+#         """The core training loop"""
+#         logger.info(f"Starting training for {num_episodes} episodes...")
+        
+#         for episode in tqdm(range(num_episodes), desc="Training"):
+#             start_time = time.time()
+            
+#             reward, loss, seeds = self.train_episode(max_seed_size)
+            
+#             # Calculating the final spread
+#             final_spread = self.diffusion.simulate(seeds, num_simulations=50)
+            
+#             training_time = time.time() - start_time
+            
+#             # ثبت metrics
+#             self.metrics['episode_rewards'].append(reward)
+#             self.metrics['episode_losses'].append(loss)
+#             self.metrics['episode_spreads'].append(final_spread)
+#             self.metrics['training_times'].append(training_time)
+            
+#             # Logging
+#             if (episode + 1) % self.config['training']['log_interval'] == 0:
+#                 logger.info(f"Episode {episode + 1}: Reward={reward:.2f}, "
+#                            f"Loss={loss:.4f}, Spread={final_spread:.2f}, "
+#                            f"Epsilon={self.agent.epsilon:.3f}")
+            
+#             # Save checkpoint
+#             if (episode + 1) % self.config['training']['checkpoint_interval'] == 0:
+#                 import os
+#                 os.makedirs('outputs/models', exist_ok=True)
+#                 self.agent.save_model(f"outputs/models/checkpoint_{episode + 1}.pt")
+        
+#         return self.metrics
+    
+#     def get_best_seeds(self, num_seeds: int) -> List[int]:
+#         """Finding the best seed set using the learned policy"""
+#         selected = set()
+        
+#         for _ in range(num_seeds):
+#             state = self.agent._get_state_representation(selected, set())
+#             available = [i for i in range(self.n_nodes) if i not in selected]
+            
+#             with torch.no_grad():
+#                 state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.agent.device)
+#                 q_values = self.agent.policy_net(state_tensor).cpu().numpy()[0]
+                
+#                 best_action = max(available, key=lambda a: q_values[a] if a < len(q_values) else -float('inf'))
+#                 selected.add(best_action)
+        
+#         return [self.node_list[i] for i in selected]
+
+"""
+Training Module – Optimized for speed and memory
+"""
+
+import numpy as np
+from tqdm import tqdm
+import time
+import logging
+from typing import Dict, List, Tuple
+import json
+import torch
+import os
+
+from src.ddqn_agent import DDQNAgent
+from src.diffusion_model import IndependentCascade
+from src.feature_extractor import FeatureExtractor
+
+logger = logging.getLogger(__name__)
+
+
+class Trainer:
+    """Training Process Management"""
+    
+    def __init__(self, graph, config: dict):
+        self.graph = graph
+        self.config = config
+        self.n_nodes = graph.number_of_nodes()
+        self.node_list = list(graph.nodes())
+        self.node_to_idx = {node: i for i, node in enumerate(self.node_list)}
+        self.idx_to_node = {i: node for i, node in enumerate(self.node_list)}
+        
+        # Feature extraction
+        logger.info("Extracting features...")
+        self.feature_extractor = FeatureExtractor(graph)
+        self.node_features = self.feature_extractor.extract_all_features()
+        
+        # Diffusion model
+        logger.info("Initializing diffusion model...")
+        self.diffusion = IndependentCascade(graph, prob='weighted')
+        
+        # Agent
+        logger.info("Initializing DDQN agent...")
+        feature_dim = self.node_features.shape[1]
+        self.agent = DDQNAgent(self.n_nodes, feature_dim, config['ddqn'])
+        self.agent.set_node_features(self.node_features)
+        
+        # Track metrics
+        self.metrics = {
+            'episode_rewards': [],
+            'episode_losses': [],
+            'episode_spreads': [],
+            'training_times': []
+        }
+        
+    def train_episode(self, max_seed_size: int) -> Tuple[float, float, List[int]]:
+        """Training an episode"""
+        selected_nodes = set()
+        activated_nodes = set()
+        episode_reward = 0
+        episode_losses = []
+        seeds = []
+        
+        for step in range(max_seed_size):
+            # Creating a state
+            state = self.agent._get_state_representation(selected_nodes, activated_nodes)
+            
+            # Available actions
+            available = [i for i in range(self.n_nodes) if i not in selected_nodes]
+            if not available:
+                break
+            
+            # Select action
+            action = self.agent.select_action(state, available)
+            node_id = self.idx_to_node[action]
+            seeds.append(node_id)
+            selected_nodes.add(action)
+            
+            # Simulation of transmission and reception by a set of active nodes.
+            new_activated_set = self.diffusion.simulate_get_activated(seeds, num_simulations=5)
+            new_activated_indices = {self.node_to_idx[n] for n in new_activated_set if n in self.node_to_idx}
+            
+            # Calculating the reward (increase in the number of active users)
+            prev_count = len(activated_nodes)
+            activated_nodes.update(new_activated_indices)
+            reward = len(activated_nodes) - prev_count
+            
+            episode_reward += reward
+            
+            # Constructing next_state
+            next_state = self.agent._get_state_representation(selected_nodes, activated_nodes)
+            
+            done = (step == max_seed_size - 1)
+            
+            # Save Experience
+            self.agent.remember(state, action, reward, next_state, done)
+            
+            # Training
+            loss = self.agent.replay()
+            if loss > 0:
+                episode_losses.append(loss)
+            
+            if done:
+                break
+        
+        # Epsilon update
+        self.agent.update_epsilon()
+        
+        avg_loss = np.mean(episode_losses) if episode_losses else 0
+        return episode_reward, avg_loss, seeds
+    
+    def train(self, num_episodes: int, max_seed_size: int) -> Dict:
+        """Core training loop"""
+        logger.info(f"Starting training for {num_episodes} episodes...")
+        
+        for episode in tqdm(range(num_episodes), desc="Training"):
+            start_time = time.time()
+            
+            reward, loss, seeds = self.train_episode(max_seed_size)
+            
+            # Calculating the final spread
+            if seeds:
+                final_spread = self.diffusion.get_spread(seeds, num_simulations=30)
+            else:
+                final_spread = 0
+            
+            training_time = time.time() - start_time
+            
+            # Logging metrics
+            self.metrics['episode_rewards'].append(reward)
+            self.metrics['episode_losses'].append(loss)
+            self.metrics['episode_spreads'].append(final_spread)
+            self.metrics['training_times'].append(training_time)
+            
+            # Logging
+            if (episode + 1) % self.config['training']['log_interval'] == 0:
+                logger.info(f"Episode {episode + 1}: Reward={reward:.2f}, "
+                           f"Loss={loss:.4f}, Spread={final_spread:.2f}, "
+                           f"Epsilon={self.agent.epsilon:.3f}")
+            
+            # Save checkpoint
+            if (episode + 1) % self.config['training']['checkpoint_interval'] == 0:
+                os.makedirs('outputs/models', exist_ok=True)
+                self.agent.save_model(f"outputs/models/checkpoint_{episode + 1}.pt")
+        
+        return self.metrics
+    
+    def get_best_seeds(self, num_seeds: int) -> List[int]:
+        """Finding the best seed set using the learned policy."""
+        selected = set()
+        
+        for _ in range(num_seeds):
+            state = self.agent._get_state_representation(selected, set())
+            available = [i for i in range(self.n_nodes) if i not in selected]
+            
+            if not available:
+                break
+                
+            with torch.no_grad():
+                state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.agent.device)
+                q_values = self.agent.policy_net(state_tensor).cpu().numpy()[0]
+                
+                best_action = max(available, key=lambda a: q_values[a] if a < len(q_values) else -float('inf'))
+                selected.add(best_action)
+        
+        return [self.idx_to_node[i] for i in selected]
