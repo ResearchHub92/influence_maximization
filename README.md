@@ -1,8 +1,8 @@
-# Influence Maximization in Social Networks via Deep Reinforcement Learning
+# An Empirical Benchmark of Scalability and Robustness in Influence Maximization: Heuristic vs. DRL Paradigms
 
 **A Double Deep Q-Network (Double DQN) framework for influence maximization under the Independent Cascade diffusion model.**
 
-This repository implements a reinforcement learning-based approach to the influence maximization problem in social networks. Instead of relying on the repeated, computationally expensive simulations required by classical greedy algorithms, an agent is trained via Double DQN to learn an adaptive seed-node selection policy through direct interaction with a simulated diffusion environment.
+This repository implements a reinforcement learning-based framework for the influence maximization problem in social networks. Rather than relying exclusively on the repeated and computationally intensive simulations required by classical greedy methods, the proposed approach employs a Double Deep Q-Network (DDQN) agent to learn an adaptive seed-selection policy through direct interaction with a simulated diffusion environment. The framework is designed to evaluate whether a learning-based strategy can provide a competitive and scalable alternative to structural and simulation-based baselines in terms of diffusion effectiveness, computational efficiency, and robustness.
 
 ---
 
